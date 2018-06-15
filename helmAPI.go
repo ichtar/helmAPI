@@ -7,6 +7,7 @@ import (
     "os/exec"
     "bytes"
     "regexp"
+    "strings"
     "github.com/gorilla/mux"
 )
 
@@ -32,16 +33,20 @@ func shell(w http.ResponseWriter, r *http.Request) {
             cluster=i[2]
             deployment=i[3]
         }
-        // remove dry-run when want to push real update
-        cmd = exec.Command("helm","--dry-run","--debug","--kube-context",cluster,"upgrade",deployment,"-f",envPath,"charts/bm-stack")
-        cmd.Dir = workDir
-        cmd.Stdout = &out
-        err = cmd.Run()
-        if err != nil {
-            log.Fatal(err)
+        if strings.EqualFold(cluster,"aws1.bestmile.io") && strings.EqualFold(deployment,"demo") {
+            // remove dry-run when want to push real update
+            cmd = exec.Command("helm","--dry-run","--debug","--kube-context",cluster,"upgrade",deployment,"-f",envPath,"charts/bm-stack")
+            cmd.Dir = workDir
+            cmd.Stdout = &out
+            err = cmd.Run()
+            if err != nil {
+                log.Fatal(err)
+            }
+            fmt.Fprintf(w, out.String())
+        } else {
+            http.Error(w, "Forbidden", http.StatusForbidden)
         }
-        fmt.Fprintf(w, out.String())
-      } else {
+    } else {
         http.Error(w, "Forbidden", http.StatusForbidden)
     }
 }
