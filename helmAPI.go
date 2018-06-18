@@ -14,9 +14,10 @@ import (
 func shell(w http.ResponseWriter, r *http.Request) {
     var out bytes.Buffer
     var envPath,cluster,deployment string
+    //workDir := "/home/ichtar/helm-charts"
     workDir := "/Users/ichtar/git/helm-charts"
     // get last version of code
-    cmd := exec.Command("git","pull","--rebase")
+    cmd := exec.Command("git","pull","--rebase","--verbose")
     cmd.Dir = workDir
     cmd.Stdout = &out
     err := cmd.Run()
@@ -32,20 +33,22 @@ func shell(w http.ResponseWriter, r *http.Request) {
             envPath=i[1]
             cluster=i[2]
             deployment=i[3]
-        }
-        if strings.EqualFold(cluster,"aws1.bestmile.io") && strings.EqualFold(deployment,"demo") {
-            // remove dry-run when want to push real update
-            cmd = exec.Command("helm","--dry-run","--debug","--kube-context",cluster,"upgrade",deployment,"-f",envPath,"charts/bm-stack")
-            cmd.Dir = workDir
-            cmd.Stdout = &out
-            err = cmd.Run()
-            if err != nil {
-                log.Fatal(err)
+	    fmt.Println(envPath,cluster,deployment)
+            if strings.EqualFold(cluster,"aws1.bestmile.io") && strings.EqualFold(deployment,"demo") {
+                // remove dry-run when want to push real update
+                cmd = exec.Command("helm","--dry-run","--debug","--kube-context",cluster,"upgrade",deployment,"-f",envPath,"charts/bm-stack")
+                cmd.Dir = workDir
+                cmd.Stdout = &out
+                err = cmd.Run()
+                if err != nil {
+                    log.Fatal(err)
+                }
+                fmt.Fprintf(w, out.String())
+		// quit when a hit is found (if it needs to be extended to update multiple env need to be rethink)
+		return
             }
-            fmt.Fprintf(w, out.String())
-        } else {
-            http.Error(w, "Forbidden", http.StatusForbidden)
         }
+        http.Error(w, "Forbidden", http.StatusForbidden)
     } else {
         http.Error(w, "Forbidden", http.StatusForbidden)
     }
@@ -60,4 +63,3 @@ func handleRequests() {
 func main() {
     handleRequests()
 }
-
