@@ -12,6 +12,7 @@ import (
 )
 
 func shell(w http.ResponseWriter, r *http.Request) {
+    var hasNotBeenDeployed bool = true
     var out bytes.Buffer
     var envPath,cluster,deployment string
     //workDir := "/home/ichtar/helm-charts"
@@ -34,9 +35,9 @@ func shell(w http.ResponseWriter, r *http.Request) {
             cluster=i[2]
             deployment=i[3]
 	    fmt.Println(envPath,cluster,deployment)
-            if strings.EqualFold(cluster,"aws1.bestmile.io") && strings.EqualFold(deployment,"demo") {
+            if strings.EqualFold(cluster,"aws1.bestmile.io") {
                 // remove dry-run when want to push real update
-                cmd = exec.Command("helm","--dry-run","--debug","--kube-context",cluster,"upgrade",deployment,"-f",envPath,"charts/bm-stack")
+                cmd = exec.Command("helm","--dry-run","--kube-context",cluster,"upgrade",deployment,"-f",envPath,"charts/bm-stack")
                 cmd.Dir = workDir
                 cmd.Stdout = &out
                 err = cmd.Run()
@@ -44,20 +45,19 @@ func shell(w http.ResponseWriter, r *http.Request) {
                     log.Fatal(err)
                 }
                 fmt.Fprintf(w, out.String())
-		// quit when a hit is found (if it needs to be extended to update multiple env need to be rethink)
-		return
+		hasNotBeenDeployed = false
             }
         }
-        http.Error(w, "Forbidden", http.StatusForbidden)
-    } else {
-        http.Error(w, "Forbidden", http.StatusForbidden)
+    }
+    if hasNotBeenDeployed {
+        http.Error(w, "No Content", http.StatusNoContent)
     }
 }
 
 func handleRequests() {
     myRouter := mux.NewRouter().StrictSlash(true)
     myRouter.HandleFunc("/trigger", shell ).Methods("POST")
-    log.Fatal(http.ListenAndServe(":8080", myRouter))
+    log.Fatal(http.ListenAndServeTLS(":8080","/etc/ssl/certAPI/fullchain.pem","/etc/ssl/certAPI/privkey.pem", myRouter))
 }
 
 func main() {
